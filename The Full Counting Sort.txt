@@ -1,0 +1,16 @@
+n = int(input())
+counts = [0]  100
+helper = [[] for i in xrange(100)]
+
+for i in xrange(n)
+    arr = raw_input().split()
+    num = int(arr[0])
+    counts[num] = counts[num] + 1
+    helper[num].append((i, arr[1]))
+    
+for i in xrange(100)
+    for j in xrange(counts[i])
+        if helper[i][j][0]  n  2
+            print -,
+        else
+            print helper[i][j][1],
