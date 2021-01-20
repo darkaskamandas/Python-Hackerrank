@@ -1,0 +1,18 @@
+# Enter your code here. Read input from STDIN. Print output to STDOUT
+T = int(raw_input())
+for t in range(0, T):
+    N = int(raw_input())
+    a = [0] * 1000001
+    res = 0
+    line = raw_input()
+    for item in line.split(' '):
+        x = int(item)
+        while x > 0:
+            res += a[x]
+            x -= x & -x
+        x = int(item)
+        while x <= 1000000:
+            a[x] = a[x] + 1
+            x += x & -x
+    res = N * (N - 1) / 2 - res
+    print res
