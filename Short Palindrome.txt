@@ -1,0 +1,34 @@
+def fn(s):
+    mod = 10**9+7
+    n = len(s)
+    # s is list of original letters converted to nums
+    # 'a'->0, 'b'->1,'d'->3 etc
+    single = [0 for j in range(26)]  # freq of a letter; like single[0] is freq of 'a'
+    double = [[0 for k in range(26)] for j in range(26)]
+    # freq of a pair ('ab','cf' etc) double[2][0] is freq of 'ca'
+    triple = [[0 for k in range(26)] for j in range(26)]
+    # freq of a valid triple ('abb','cff' etc) triple[3][0] is freq of 'daa'
+    four = [0 for k in range(26)] 
+    # freq of a valid quadruple ('abba','cffc' etc) four[0] is freq of 'a..a'
+    # where . is any letter
+    for i in range(n):
+        e = s[i]
+        
+        for t in range(26):
+            four[e] += triple[e][t]
+            four[e] %= mod
+        for t in range(26):
+            triple[t][e] += double[t][e]
+            triple[t][e] %= mod
+        for t in range(26):
+            double[t][e] += single[t]
+            double[t][e] %= mod
+        single[e] += 1
+        single[e] %= mod
+    # Ans is sum of freq of all valid quadruples ('a..a','b..b' etc)
+    return (sum(four))%mod
+
+s  = list(input())
+a = [ord(i)-97 for i in s]
+ans = fn(a)
+print(ans)
