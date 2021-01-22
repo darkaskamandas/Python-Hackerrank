@@ -1,0 +1,28 @@
+T = int(input())
+for i in range(T):
+    l, s = [int(j) for j in input().split(',')]
+    ls = {}
+    lsb = {}
+    ss = {}
+    ssb = {}
+    vals = input().split()
+    for j in range(l):
+        start, end = [int(k)-1 for k in vals[j].split(',')]
+        ls[start] = end
+        lsb[end] = start
+    vals = input().split()
+    for j in range(s):
+        start, end = [int(k)-1 for k in vals[j].split(',')]
+        ss[start] = end
+        ssb[end] = start
+    m = [0]
+    for j in range(1, 100):
+        m.append(10**10)
+        if j in lsb:
+            m[j] = m[lsb[j]]
+        for k in range(max(0, j-6), j):
+            if k in ss or k in ls:
+                continue
+            if 1+m[k] < m[j]:
+                m[j] = 1+m[k]
+    print(m[99])

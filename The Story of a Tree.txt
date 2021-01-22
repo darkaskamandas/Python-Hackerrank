@@ -1,0 +1,80 @@
+#!/bin/python3
+
+from collections import defaultdict
+from fractions import gcd
+
+checked = set()
+guesses = set()
+subtree = {}
+max_reverse = 0
+# depth = {}
+# subtree = defaultdict(lambda: set())
+# subtree_size = {}
+
+def dfs(tree, node, increment, decrement):
+	# depth[node] = d
+	# subtree_num = 1
+	# subtree[node].add(node)
+	global max_reverse
+	subtree[node] = (increment, decrement)
+	checked.add(node)
+	for child in tree[node]:
+		if child in checked:
+			continue
+		new_increment = increment
+		new_decrement = decrement
+		if (child, node) in guesses:
+			new_increment += 1
+		if (node, child) in guesses:
+			new_decrement += 1
+			max_reverse += 1
+		dfs(tree, child, new_increment, new_decrement)
+		# dfs(tree, child, d + 1)
+		# subtree_num += subtree_size[child]
+		# subtree[node] |= (subtree[child])
+	# subtree_size[node] = subtree_num
+
+trees = int(input())
+for q in range(trees):
+	n = int(input())
+	tree = defaultdict(lambda: [])
+	for i in range(n - 1):
+		u, v = [int(x) for x in input().split()]
+		tree[u].append(v)
+		tree[v].append(u)
+	g, k = [int(x) for x in input().split()]
+	guesses.clear()
+	for i in range(g):
+		u, v = [int(x) for x in input().split()]
+		guesses.add((u, v))
+	checked.clear()
+	# depth.clear()
+	subtree.clear()
+	max_reverse = 0
+	# subtree_size.clear()
+	dfs(tree, 1, 0, 0)
+	# for i in range(1, n + 1):
+		# print(i, subtree[i])
+		# max_reverse = max(max_reverse, subtree[i][1])
+	correct_cases = [0] * (n + 1)
+	num_correct = 0
+	for i in range(1, n + 1):
+		correct_cases[i] = subtree[i][0] + max_reverse - subtree[i][1]
+		if correct_cases[i] >= k:
+			num_correct += 1
+	# correct_cases = [0] * (n + 1)
+	# for guess in guesses:
+	# 	u, v = guess
+	# 	if depth[v] > depth[u]:
+	# 		for e in (subtree[1] - subtree[v]):
+	# 			correct_cases[e] += 1
+	# 	else:
+	# 		for e in subtree[u]:
+	# 			correct_cases[e] += 1
+	# num_correct = 0
+	# for i in range(1, n + 1):
+	# 	if correct_cases[i] >= k:
+	# 		num_correct += 1
+	# print(correct_cases[1:])
+	common = gcd(num_correct, n)
+	print(str(num_correct // common) + "/" + str(n // common))
