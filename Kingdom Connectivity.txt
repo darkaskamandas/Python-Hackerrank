@@ -1,0 +1,40 @@
+Modulo = 1000000000
+
+N, M = map(lambda x: int(x), raw_input().split())
+
+cities = [[[],0,False,False,False] for x in xrange(N+1)]
+cycleFound = False
+
+for _ in xrange(M):
+  x, y = map(lambda x: int(x), raw_input().split())
+  if x == N: continue
+  cities[y][0].append(x)
+
+cities[1][1] = 1
+cities[1][3] = False 
+
+def solve(cityNr):
+  global cycleFound
+
+  if cycleFound: return 0
+
+  city = cities[cityNr]
+  
+  if city[4] or city[3]: 
+    city[2] = city[3]
+    return city[1]
+  
+  city[3] = True
+  
+  for cnr in city[0]: city[1] = (city[1] + solve(cnr)) % Modulo
+  
+  if city[2] and city[1] > 0: 
+    cycleFound = True
+    
+  city[4] = True
+  
+  return city[1]
+
+rezult = solve(N)
+
+print rezult if not cycleFound else "INFINITE PATHS"
