@@ -1,0 +1,61 @@
+from collections import namedtuple, deque
+
+
+Node = namedtuple('Node', ['value', 'adj_vertices'])
+
+
+def init_graph(vertices, edges):
+    """Getting graph configuration from STDIN and return of preparing data."""
+
+    graph = {i: [0, set()] for i in range(1, vertices+1)}
+
+    for _ in range(edges):
+        edge = input()
+        from_node, to_node = map(int, edge.split(' '))
+        graph[from_node][1].add(to_node)
+
+    return graph
+
+
+def dfs(graph, start):
+    """DFS algorithm for traversing graph"""
+    visited, queue = set(), deque([start])
+    while queue:
+        vertex = queue.pop()
+        if vertex not in visited:
+            visited.add(vertex)
+            queue.extend(graph[vertex][1] - visited)
+    return visited
+
+
+def execute_queries(graph, queries):
+    """Getting queries from STDIN and executing them"""
+    subgraph_nodes = {vertex: dfs(graph, vertex) for vertex in graph}
+
+    for _ in range(queries):
+        query = input()
+        query = [int(n) for n in query.split(' ')]
+        q_type, vertex = query[:2]
+
+        if q_type == 3:
+            print(graph[vertex][0])
+            continue
+
+        new_value = query[2]
+
+        for node in subgraph_nodes[vertex]:
+            if q_type == 1 or (q_type == 2 and graph[node][0] > new_value):
+                graph[node][0] = new_value
+
+
+def get_graph_config():
+    """Getting configuration string with counts of vertices, edges and queries from STDIN"""
+    graph_conf = input()
+    v_count, e_count, q_count = map(int, graph_conf.split(' '))
+    return v_count, e_count, q_count
+
+
+if __name__ == '__main__':
+    vertices_count, edges_count, queries_count = get_graph_config()
+    dag_graph = init_graph(vertices_count, edges_count)
+    execute_queries(dag_graph, queries_count)

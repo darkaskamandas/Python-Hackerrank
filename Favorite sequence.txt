@@ -1,0 +1,28 @@
+from collections import defaultdict
+
+n = int(input())
+before_maps = defaultdict(set)
+after_maps = defaultdict(set)
+for _ in range(n):
+    k = int(input())
+    sequence = map(int, input().split())
+    prev = 0
+    for num in sequence:
+        if prev:
+            before_maps[num].add(prev)
+        after_maps[prev].add(num)
+        prev = num
+
+m = []
+actives = set(active for active in after_maps[0] if not before_maps[active])
+while actives:
+    next_step = sorted(actives)[0]
+
+    actives.remove(next_step)
+    for step in after_maps[next_step]:
+        before_maps[step].remove(next_step)
+
+    actives.update(active for active in after_maps[next_step] if not before_maps[active])
+    m.append(next_step)
+
+print(' '.join(map(str, m)))
