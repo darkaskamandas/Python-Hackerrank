@@ -1,0 +1,58 @@
+#!/bin/python3
+
+import sys
+
+def generate(move, N):
+    next = []
+    i = 0
+    
+    available = [1, 2, 3, 4]
+    
+    while (i < N):
+        if len(available) == 0:
+            break
+        elif (move[i] in available):
+            available.remove(move[i])
+        else:
+            i = i + 1
+            continue
+            
+        for m in available:
+            amove = list(move)
+            amove[i] = m
+            next.append(tuple(amove))
+            
+        i = i + 1
+        
+    return set(next);
+
+N = int(input().strip())
+a = [int(a_temp) for a_temp in input().strip().split(' ')]
+
+initial = [];
+i = 0
+while (i < N):
+    initial.append(1)
+    i = i + 1
+
+moves = set();
+moves.add(tuple(initial));
+
+current = set(moves)
+gen = 0
+
+while True:
+    next = set()
+    for move in current:
+        next.update(generate(move, N))
+        
+    gen = gen + 1    
+    next.difference_update(moves)
+    moves.update(next)
+    
+    if (tuple(a) in next):
+        print(gen)
+        break
+    
+    current = set(next)
+    
