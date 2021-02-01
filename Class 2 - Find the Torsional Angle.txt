@@ -1,0 +1,21 @@
+from math import *
+points = []
+
+def cross(a, b):
+    return [a[1] * b[2] - b[1] * a[2], a[2] * b[0] - b[2] * a[0], a[0] * b[1] - b[0] * a[1]]
+
+def dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+def length(a):
+    return sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])
+
+def minus(a, b):
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+
+for i in range(4):
+    points.append(list(map(float, input().split())))
+X = cross(minus(points[0], points[1]), minus(points[1], points[2]))
+Y = cross(minus(points[1], points[2]), minus(points[2], points[3]))
+cosphi = dot(X, Y) / (length(X) * length(Y))
+print("%.2f" % degrees(acos(cosphi)))

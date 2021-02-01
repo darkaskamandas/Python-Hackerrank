@@ -1,0 +1,51 @@
+import math
+
+class Complex:
+    def __init__(self, re, im):
+        self.re = re
+        self.im = im
+    
+    def mod(self):
+        return math.sqrt(self.re*self.re + self.im*self.im)
+    
+    def __add__(self, c2):
+        return Complex(self.re + c2.re, self.im + c2.im) 
+    
+    def __sub__(self, c2):
+        return Complex(self.re - c2.re, self.im - c2.im) 
+    
+    def __mul__(self, c2):
+        return Complex(self.re*c2.re - self.im*c2.im, self.im*c2.re + self.re*c2.im)
+    
+    def __div__(self, c2):
+        c2_mod2 = float(c2.re*c2.re + c2.im*c2.im)
+        return Complex((self.re*c2.re + self.im*c2.im)/c2_mod2, 
+                       (self.im*c2.re - self.re*c2.im)/c2_mod2);
+    
+    def conjugate(self):
+        return Complex(self.re, -self.im)
+    
+    def __str__(self):
+        if self.im == 0:
+            return '%.2f' % self.re
+        
+        if self.re == 0:
+            return '%.2fi' % self.im
+        
+        if self.im > 0:
+            return '%.2f + %.2fi'  % (self.re, self.im)
+        else:
+            return '%.2f - %.2fi'  % (self.re, -self.im)
+  
+line = raw_input().split(' ')
+c1 = Complex(float(line[0]), float(line[1]))
+line = raw_input().split(' ')
+c2 = Complex(float(line[0]), float(line[1]))
+print c1 + c2
+print c1 - c2
+print c1 * c2
+print c1 / c2
+print '%.2f' % c1.mod()
+print '%.2f' % c2.mod()
+
+    
