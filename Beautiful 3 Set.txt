@@ -1,0 +1,12 @@
+n = int(input().strip())
+
+low = n // 3
+high = 2 * n // 3
+
+print(high + 1)
+
+for i in range(low+1):
+    print(i, 2*(low-i), n+i-2*low)
+    
+for j in range(low+1, high+1):
+    print(j, 2*(high-j)+1, n+j-1-2*high)
