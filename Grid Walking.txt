@@ -1,0 +1,134 @@
+import string
+
+
+def newmultiarray(dim):
+    if len(dim) == 1:
+        return [0]*dim[0]
+    else:
+        return [newmultiarray(dim[1:]) for x in range(dim[0])]
+
+def multiget(arr,point):
+    if len(point) == 1:
+        return arr[point[0]]
+    else:
+        return multiget(arr[point[0]],point[1:])
+
+def multiset(arr,point,val):
+    if len(point) == 1:
+        arr[point[0]] = val
+    else:
+        multiset(arr[point[0]],point[1:],val)
+
+def sumneighbors(arr,point):
+    total = 0
+    for i in range(len(point)):
+       point[i] += 1
+       total += multiget(arr,point) % 1000000007
+       point[i] += -2
+       total += multiget(arr,point) % 1000000007
+       point[i] += 1
+    return total 
+    
+def enumpoints(dim):
+    if len(dim) == 1:
+        return [[a] for a in range(1,dim[0]+1)]
+    else:
+        rec = enumpoints(dim[1:])
+        return [[i]+r for i in range(1,dim[0]+1) for r in rec]
+
+modulus = 1000000007
+
+def binomcoeffs(n):
+    if n == 1:
+        return [[1],[1,1]]
+    else:
+        recanswer = binomcoeffs(n-1)
+        last = list(recanswer[n-1])
+        last = [0] + last + [0]
+        out = [0]*(n+1)
+        for i in xrange(n+1):
+            out[i] = (last[i] + last[i+1]) % modulus
+        recanswer.append(out)
+        return recanswer
+
+
+##        while (len(rec) > 1):
+##            a,b = rec.pop(),rec.pop()
+##            out.insert(0,(a+b) % modulus)
+##            rec.append(b)
+##        recanswer.append(out)
+##        return recanswer
+
+#outputs array with i'th elt equal to solution after i reps
+def solve1dproblem(d,x,reps):
+    grid = [0]*(d+2)
+    grid[x] = 1
+    out = [1] + [0]*reps
+    for i in xrange(reps):
+        tempgrid = [0]*(d+2)
+        for j in xrange(1,d+1):
+            tempgrid[j] = (grid[j-1] + grid[j+1]) % modulus
+        grid = tempgrid
+        out[i+1] = reduce(lambda x,y: (x+y)%modulus, grid)
+    return out
+
+
+
+[t] = map(int,string.split(raw_input()))
+#t = 1
+#solutions = []
+
+for i in xrange(t):
+    n,m = map(int,string.split(raw_input()))
+    x = map(int,string.split(raw_input()))
+    d = map(int,string.split(raw_input()))
+
+    #d=[78, 78]
+    #x = [44,44]
+    #m = 2
+    #n = 2
+
+    binoms = binomcoeffs(m)
+
+    #totals[i][j] is number of ways to take j steps in only first i dimensions
+    totals = [0]*n
+    for i in xrange(n):
+        totals[i] = [0]*(m+1)
+    totals[0] = solve1dproblem(d[0],x[0],m)
+
+    for i in xrange(1,n):
+        onedanswer = solve1dproblem(d[i],x[i],m)
+        for j in xrange(m+1):
+            for k in xrange(j+1):
+                totals[i][j] = (totals[i][j] + (totals[i-1][j-k])*(onedanswer[k])*(binoms[j][k])) % modulus
+            #print totals
+
+    print totals[n-1][m]
+
+
+#for i in xrange(t):
+##    n,m = map(int,string.split(raw_input()))
+##    x = map(int,string.split(raw_input()))
+##    d = map(int,string.split(raw_input()))
+
+
+##
+##    
+##    grid = newmultiarray([a+2 for a in d])
+##    multiset(grid,x,1)
+##
+##    for i in xrange(m):
+##        tempgrid = newmultiarray([a+2 for a in d])
+##        for pt in enumpoints(d):
+##            numnei = sumneighbors(grid,pt)
+##            multiset(tempgrid,pt,numnei)
+##        grid = tempgrid
+##
+##    print sum([multiget(grid,x) for x in enumpoints(d)]) % 1000000007
+
+##    solutions.append(sum(grid)
+##
+##for s in solutions:
+##    print s
+
+
