@@ -1,0 +1,348 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Diagnostics;
+
+public class Solution
+{
+    static void Main(string[] args)
+    {
+        N = ReadNextInt();
+        M = ReadNextInt();
+        K = ReadNextInt();
+
+        TBLTO = new Table();
+
+        Square end = new Square();
+
+        for (int row = 0; row < N; row++)
+        {
+            for (int col = 0; col < M; col++)
+            {
+                byte cell = ReadNextCell();
+                TBLTO.T[row, col] = cell;
+                if (cell == END) end = new Square(row, col);
+            }
+        }
+
+        int result = -1;
+
+        Calculator calculator = new FirstLayerCalculator();
+        if (calculator.CalculateLayer(end)) result = 0;
+
+        for (int l = 1; (l <= N + M) && (result < 0); l++)
+        {
+            calculator = new NextLayerCalculator(l);
+            if (calculator.CalculateLayer(end)) result = l;
+        }
+
+        Console.WriteLine(result);
+    }
+
+    private static int N;
+    private static int M;
+    private static int K;
+
+    public const byte UNREACHABLE = 0;
+    public const byte END = 5;
+
+    public const byte UP = 1;
+    public const byte DOWN = 4;
+    public const byte LEFT = 2;
+    public const byte RIGHT = 3;
+
+    private static Table TBLTO;
+
+    private static Record[][,] LAYERS = new Record[101][,];
+
+    private class Table
+    {
+        public readonly byte[,] T;
+        public Table()
+        {
+            this.T = new byte[N, M];
+        }
+    }
+
+    private struct Record
+    {
+        private const short UNKNOWN = 0;
+        private const short UNREACHABLE = 10000;
+
+        public short Distance;
+
+        public readonly static Record Unreachable = new Record(UNREACHABLE);
+
+        public Record(int dist)
+        {
+            this.Distance = (short)dist;
+        }
+
+        public bool IsUnknown { get { return this.Distance == UNKNOWN; } }
+        public bool IsUnreachable { get { return this.Distance == UNREACHABLE; } }
+        public bool IsCalculated { get { return this.Distance > UNKNOWN; } }
+
+        public Record Inc()
+        {
+            Debug.Assert(!this.IsUnknown);
+            return this.IsUnreachable ? this : new Record(this.Distance + 1);
+        }
+    }
+
+    private struct Square
+    {
+        public readonly byte Row;
+        public readonly byte Col;
+
+        public static readonly Square None = new Square(100, 100, true);
+
+        public Square(int row, int col)
+            : this(row, col, true)
+        {
+            Debug.Assert(row >= 0 && row < N);
+            Debug.Assert(col >= 0 && col < M);
+        }
+
+        private Square(int row, int col, bool dummy)
+        {
+            this.Row = (byte)row;
+            this.Col = (byte)col;
+        }
+
+        public bool IsNone { get { return this.Row >= 100; } }
+
+        public Square Up { get { return this.Row > 0 ? new Square(this.Row - 1, this.Col) : Square.None; } }
+        public Square Down { get { return this.Row < (N - 1) ? new Square(this.Row + 1, this.Col) : Square.None; } }
+        public Square Left { get { return this.Col > 0 ? new Square(this.Row, this.Col - 1) : Square.None; } }
+        public Square Right { get { return this.Col < (M - 1) ? new Square(this.Row, this.Col + 1) : Square.None; } }
+
+        public Square Next
+        {
+            get
+            {
+                switch (TBLTO.T[this.Row, this.Col])
+                {
+                    case UP: return Up;
+                    case DOWN: return Down;
+                    case LEFT: return Left;
+                    case RIGHT: return Right;
+                    default: return Square.None;
+                }
+            }
+        }
+
+        public Square UpIfReachable
+        {
+            get
+            {
+                Debug.Assert(!this.IsNone);
+                if (this.Row <= 0) return Square.None;
+                var result = new Square(this.Row - 1, this.Col);
+                return TBLTO.T[result.Row, result.Col] == DOWN ? result : Square.None;
+            }
+        }
+
+        public Square DownIfReachable
+        {
+            get
+            {
+                Debug.Assert(!this.IsNone);
+                if (this.Row >= (N - 1)) return Square.None;
+                var result = new Square(this.Row + 1, this.Col);
+                return TBLTO.T[result.Row, result.Col] == UP ? result : Square.None;
+            }
+        }
+
+        public Square LeftIfReachable
+        {
+            get
+            {
+                Debug.Assert(!this.IsNone);
+                if (this.Col <= 0) return Square.None;
+                var result = new Square(this.Row, this.Col - 1);
+                return TBLTO.T[result.Row, result.Col] == RIGHT ? result : Square.None;
+            }
+        }
+
+        public Square RightIfReachable
+        {
+            get
+            {
+                Debug.Assert(!this.IsNone);
+                if (this.Col >= (M - 1)) return Square.None;
+                var result = new Square(this.Row, this.Col + 1);
+                return TBLTO.T[result.Row, result.Col] == LEFT ? result : Square.None;
+            }
+        }
+    }
+
+    private abstract class Calculator
+    {
+        protected readonly Record[,] currentLayer;
+
+        protected Calculator()
+        {
+            this.currentLayer = new Record[N, M];
+        }
+
+        protected static void ChooseBest(ref Record best, Record candidate)
+        {
+            Debug.Assert(!best.IsUnknown);
+            Debug.Assert(!candidate.IsUnknown);
+
+            if (!candidate.IsUnreachable)
+            {
+                if (best.Distance > candidate.Distance)
+                {
+                    best = candidate;
+                }
+            }
+        }
+
+        protected Record CalculateSquare(Square square)
+        {
+            var best = Record.Unreachable;
+
+            CheckBaseLayer(ref best, square.Up, DOWN);
+            CheckBaseLayer(ref best, square.Down, UP);
+            CheckBaseLayer(ref best, square.Left, RIGHT);
+            CheckBaseLayer(ref best, square.Right, LEFT);
+
+            return best;
+        }
+
+        protected abstract void CheckBaseLayer(ref Record best, Square square, byte dir);
+
+        protected static Queue<Square> Q = new Queue<Square>();
+
+        public bool CalculateLayer(Square end)
+        {
+            bool needAnotherRound;
+
+            do
+            {
+                needAnotherRound = false;
+                for (int row = 0; row < N; row++)
+                {
+                    for (int col = 0; col < M; col++)
+                    {
+                        var square = new Square(row, col);
+                        var newRecord = CalculateSquare(square);
+                        Debug.Assert(newRecord.IsCalculated);
+
+                        var oldRecord = this.currentLayer[square.Row, square.Col];
+                        if (!oldRecord.IsCalculated ||
+                            oldRecord.IsUnreachable && !newRecord.IsUnreachable ||
+                            oldRecord.IsCalculated && !oldRecord.IsUnreachable &&
+                                !newRecord.IsUnreachable && oldRecord.Distance > newRecord.Distance)
+                        {
+                            needAnotherRound = true;
+                            this.currentLayer[square.Row, square.Col] = newRecord;
+                        }
+                    }
+                }
+            } while (needAnotherRound);
+
+            //  all unreachable cycles
+            for (int row = 0; row < N; row++)
+            {
+                for (int col = 0; col < M; col++)
+                {
+                    if (!this.currentLayer[row, col].IsCalculated)
+                    {
+                        this.currentLayer[row, col] = Record.Unreachable;
+                    }
+                }
+            }
+
+            var endRecord = this.currentLayer[end.Row, end.Col];
+            return !endRecord.IsUnreachable && (endRecord.Distance - 1) <= K;
+        }
+    }
+
+    private class FirstLayerCalculator : Calculator
+    {
+        public FirstLayerCalculator()
+        {
+            LAYERS[0] = this.currentLayer;
+            this.currentLayer[0, 0] = new Record(1);
+        }
+
+        protected override void CheckBaseLayer(ref Record best, Square square, byte dir)
+        {
+            if (square.IsNone) return;
+            if (TBLTO.T[square.Row, square.Col] != dir) return;
+            var otherRecord = this.currentLayer[square.Row, square.Col];
+            if (otherRecord.IsCalculated)
+            {
+                ChooseBest(ref best, this.currentLayer[square.Row, square.Col].Inc());
+            }
+        }
+    }
+
+    private class NextLayerCalculator : Calculator
+    {
+        private readonly Record[,] baseLayer;
+
+        public NextLayerCalculator(int layer)
+        {
+            Debug.Assert(layer > 0);
+            this.baseLayer = LAYERS[layer - 1];
+
+            LAYERS[layer] = this.currentLayer;
+            this.currentLayer[0, 0] = Record.Unreachable;
+        }
+
+        protected override void CheckBaseLayer(ref Record best, Square square, byte dir)
+        {
+            if (square.IsNone) return;
+            bool hasLink = TBLTO.T[square.Row, square.Col] == dir;
+            var otherRecord = (hasLink ? this.currentLayer : this.baseLayer)[square.Row, square.Col];
+            if (otherRecord.IsCalculated)
+            {
+                ChooseBest(ref best, otherRecord.Inc());
+            }
+        }
+
+        private bool IsCalculatedAndReachable(Square s)
+        {
+            if (s.IsNone) return false;
+            return !this.baseLayer[s.Row, s.Col].IsUnreachable;
+        }
+    }
+
+    private static int ReadNextInt()
+    {
+        int c = Console.Read();
+        while (!char.IsDigit((char)c))
+        {
+            c = Console.Read();
+        }
+
+        int value = 0;
+        do
+        {
+            value *= 10;
+            value += c - '0';
+        }
+
+        while (char.IsDigit((char)(c = Console.Read())));
+        return value;
+    }
+
+    private static byte ReadNextCell()
+    {
+        char c;
+    lAgain:
+        c = (char)Console.Read();
+        switch (c)
+        {
+            case 'L': return LEFT;
+            case 'R': return RIGHT;
+            case 'U': return UP;
+            case 'D': return DOWN;
+            case '*': return END;
+            default: goto lAgain;
+        }
+    }
+}

@@ -1,0 +1,66 @@
+#!/bin/python3
+
+import sys
+import collections
+
+n,e = input().strip().split(' ')
+n,e = [int(n),int(e)]
+adj=[[] for i in range(n)]
+for a0 in range(e):
+    x,y,r = input().strip().split(' ')
+    x,y,r = [int(x)-1,int(y)-1,int(r)%10]
+    adj[x].append([y,r])
+    adj[y].append([x,(10-r)%10])
+
+seen=[0]*n
+toll=[0]*n
+
+def bits(b) :
+    s=""
+    for i in range(10): s += ['0','1'][(b>>i) & 1]
+    return s
+
+ans=[0]*10
+
+for src in range(n):
+    if seen[src]: continue
+    comp=[]
+    toll[src]=1
+    q=collections.deque()
+    q.append(src)
+    while len(q) > 0:
+        c=q.popleft()
+        if seen[c] == 0: seen[c]=1; comp.append(c)
+        for a in adj[c]:
+            cc,t=a
+            tt=toll[c]<<t
+            tt=(tt|(tt>>10))&1023
+            if (tt & (~toll[cc])) != 0 :
+                toll[cc] |= tt
+                q.append(cc)
+    cn = len(comp)
+    if cn < 2: continue
+    
+    cans=[0]*10
+    assert toll[src] == 1023 or toll[src] == 1 or toll[src] == 0b0101010101  or toll[src] == 0b0000100001
+    B=10
+    if toll[src] == 0b0000100001: B = 5
+    if toll[src] == 0b0101010101: B = 2
+    if toll[src] == 0b1111111111: B = 1
+
+    cnt=[0]*10
+    for c in comp:
+        for b in range(B):
+            if (toll[c]>>b) & 1: cnt[b] += 1
+    
+    for c in comp:
+        for b in range(B):
+            if (toll[c]>>b) & 1:
+                for bb in range(B):
+                    cans[(bb+10-b)%B]+=cnt[bb]
+    cans[0]-=cn
+    
+    for b in range(10): ans[b]+=cans[b%B]
+    
+for a in ans:
+    print(a)

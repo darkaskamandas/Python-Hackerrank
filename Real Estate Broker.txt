@@ -1,0 +1,82 @@
+import copy
+clients,houses = map(int,input().split())
+client_con=[[]]
+sinkx = clients+houses+1
+for _ in range(clients):
+    area,price = map(int,input().split())
+    client_con.append((area,price))
+    
+nodes = clients + houses + 2
+clientxl = [_ for _ in range(1,clients+1)]
+housexl = [_ for _ in range(clients+1,sinkx)]
+
+blank_set = set([])
+
+adjl = [set([]) for _ in range(nodes)]
+adjl[0] = set(clientxl)
+
+    
+
+for house in housexl:
+    adjl[house] = set([sinkx])
+    area,price = map(int,input().split())
+    for client in clientxl:
+        if area > client_con[client][0] and price <= client_con[client][1]:
+            #adjm[client][house] = True
+            adjl[client].add(house)
+def bfs(source,sink):
+    #hisl = [False for _ in range(sink+1)]
+    #hisl[source] = True
+    level = {_:0 for _ in range(sink+1)}
+    que = [source]
+    level_now = 1
+    while que:
+        next_que = []
+        for node in que:
+            #hisl[node] = True
+            for adj in adjl[node]:
+                #if not hisl[adj] and adj!=0:
+                if level[adj] == 0 and adj!=0:
+                    next_que.append(adj)
+                    level[adj] = level_now
+        level_now+=1
+        que = copy.deepcopy(next_que)
+    return level
+def reset_his():
+    for x in range(1,nodes):
+        hisl[x] = False
+def dfs(node,sink,flow=0):
+    if node == sink:
+        return flow + 1
+    hisl[node] = True
+    for adj in copy.copy(adjl[node]):
+        if level[node]<level[adj] and not hisl[adj]:
+            if adjl[adj] != blank_set or adj == sink:
+                d = dfs(adj,sink,flow)
+                if d>flow:
+                    adjl[node].remove(adj)
+                    #adjl[adj].add(node)
+                    if node!=0:
+                        adjl[adj].add(node)
+                        return d
+                    else:
+                        flow = d
+            else:
+                adjl[node].remove(adj)
+    
+    return flow
+
+total = 0
+hisl = { _:False for _ in range(nodes) }
+hisl_org = copy.copy(hisl)
+while True:
+    #reset_his()
+    level = bfs(0,sinkx)
+    if level[sinkx]==0:
+        break
+    reset_his()
+    new_flow = dfs(0,sinkx)
+    total+=new_flow
+    
+    
+print(total)

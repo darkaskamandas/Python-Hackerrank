@@ -1,0 +1,50 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+class Solution {
+    static void Main(String[] args) 
+    {
+            List<int> lista = new List<int>();
+            List<int> semiLista = new List<int>();
+            List<int> indeksi = new List<int>();
+            int j = 0;
+   
+            int N = Convert.ToInt32(Console.ReadLine());
+            for (int i = 0; i < N; i++)
+            {
+                lista.Add(Convert.ToInt32(Console.ReadLine()));
+            }
+
+            semiLista.Add(lista.First());
+            indeksi.Add(0);
+            foreach(int broj in lista)
+            {
+                if (broj > semiLista.Last())
+                {
+                    semiLista.Add(broj);
+                    indeksi.Add(j);
+                }
+                else
+                {
+                    int index = semiLista.BinarySearch(broj);
+                    if (index < 0)
+                    {
+                        semiLista[+~index] = broj;
+                        indeksi[+~index] = j;
+                    }
+                    else
+                    {
+                        semiLista[index] = broj;
+                        indeksi[index] = j;
+                    }
+                }
+                j++;
+            }
+
+                Console.WriteLine(indeksi.Count);
+        }
+}

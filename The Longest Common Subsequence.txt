@@ -1,0 +1,63 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+class Solution {
+    static void Main(String[] args) {
+        var tokens = System.Console.ReadLine().Trim().Split(' ');
+        int sizeA = Int32.Parse(tokens[0]);
+        int sizeB = Int32.Parse(tokens[1]);
+
+        tokens = System.Console.ReadLine().Trim().Split(' ');
+        int[]seqA = new int[sizeA];
+        for(int i=0;i<sizeA;i++) {
+            seqA[i] = Int32.Parse(tokens[i]);
+        }
+        tokens = System.Console.ReadLine().Trim().Split(' ');
+        int[]seqB = new int[sizeB];
+        for(int i=0;i<sizeB;i++) {
+            seqB[i] = Int32.Parse(tokens[i]);
+        }
+        var lcs = LongestCommonSubsequence(seqA,sizeA,seqB,sizeB,null);
+        Console.WriteLine(String.Join(" ",lcs));
+    }
+    static List<int> LongestCommonSubsequence(int[] seqA,int countA, int[] seqB,int countB,Dictionary<Tuple<int,int>,List<int>> lcsCache) {
+        var lcs = new List<int>();
+        if(countA == 0 || countB == 0) {
+            // termination case (an empty list):
+            return lcs;
+        }
+        if(lcsCache == null) {
+            // create a new cache:
+            lcsCache = new Dictionary<Tuple<int,int>,List<int>> ();
+        }
+            
+        if(seqA[countA-1] == seqB[countB-1]){
+            var key = new Tuple<int,int>(countA-1,countB-1);
+            if(!lcsCache.ContainsKey(key)) {
+                lcsCache[key] = LongestCommonSubsequence(seqA,countA-1,seqB,countB-1,lcsCache);
+            }
+            lcs.AddRange(lcsCache[key]);
+            
+            lcs.Add(seqA[countA-1]);
+        } else {
+            var key1 = new Tuple<int,int>(countA-1,countB);
+            if(!lcsCache.ContainsKey(key1)) {
+                lcsCache[key1] = LongestCommonSubsequence(seqA,countA-1,seqB,countB,lcsCache);
+            }
+            var key2 = new Tuple<int,int>(countA,countB-1);
+            if(!lcsCache.ContainsKey(key2)) {
+                lcsCache[key2] = LongestCommonSubsequence(seqA,countA,seqB,countB-1,lcsCache);
+            }
+            var lcs1 = lcsCache[key1];
+            var lcs2 = lcsCache[key2];
+            if(lcs1.Count > lcs2.Count){
+                lcs = lcs1;
+            } else {
+                lcs = lcs2;
+            }
+        }
+        var currentKey = new Tuple<int,int>(countA,countB);
+        lcsCache[currentKey] = lcs;
+        return lcs;
+    }
+}
