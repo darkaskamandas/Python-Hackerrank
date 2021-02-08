@@ -1,95 +1,134 @@
-using System;
-using System.Linq;
+import string
 
-namespace Interviewstreet
-{
-    class Solution
-    {
-        const long Modulo = 1000000007L;
 
-        static void Main()
-        {
-            Times(Int(), Solve_Impl);
-        }
+def newmultiarray(dim):
+    if len(dim) == 1:
+        return [0]*dim[0]
+    else:
+        return [newmultiarray(dim[1:]) for x in range(dim[0])]
 
-        static void Solve_Impl()
-        {
-            var cnkTbl = new long[1001, 1001];
-            Func<long, long, long> CnkMod = null;
-            CnkMod = (n, k) =>
-            {
-                if (cnkTbl[n, k] == 0)
-                {
-                    if (k == 0 || n == 0) cnkTbl[n, k] = 1;
-                    else if (k > n / 2) cnkTbl[n, k] = CnkMod(n, n - k);
-                    else cnkTbl[n, k] = (CnkMod(n - 1, k) + CnkMod(n - 1, k - 1)) % Modulo;
-                }
+def multiget(arr,point):
+    if len(point) == 1:
+        return arr[point[0]]
+    else:
+        return multiget(arr[point[0]],point[1:])
 
-                return cnkTbl[n, k];
-            };
+def multiset(arr,point,val):
+    if len(point) == 1:
+        arr[point[0]] = val
+    else:
+        multiset(arr[point[0]],point[1:],val)
 
-            int N, M;
-            IntPair(out N, out M);
+def sumneighbors(arr,point):
+    total = 0
+    for i in range(len(point)):
+       point[i] += 1
+       total += multiget(arr,point) % 1000000007
+       point[i] += -2
+       total += multiget(arr,point) % 1000000007
+       point[i] += 1
+    return total 
+    
+def enumpoints(dim):
+    if len(dim) == 1:
+        return [[a] for a in range(1,dim[0]+1)]
+    else:
+        rec = enumpoints(dim[1:])
+        return [[i]+r for i in range(1,dim[0]+1) for r in rec]
 
-            var X = Ints().Select(x => x - 1).ToArray();
-            var D = Ints();
+modulus = 1000000007
 
-            var DimMoves = new long[N][,];
-            var TotalDimMoves = new long[N, M + 1];
+def binomcoeffs(n):
+    if n == 1:
+        return [[1],[1,1]]
+    else:
+        recanswer = binomcoeffs(n-1)
+        last = list(recanswer[n-1])
+        last = [0] + last + [0]
+        out = [0]*(n+1)
+        for i in xrange(n+1):
+            out[i] = (last[i] + last[i+1]) % modulus
+        recanswer.append(out)
+        return recanswer
 
-            for (int ix = 0; ix < N; ix++)
-            {
-                var dx = D[ix];
 
-                DimMoves[ix] = new long[dx, M + 1];
+##        while (len(rec) > 1):
+##            a,b = rec.pop(),rec.pop()
+##            out.insert(0,(a+b) % modulus)
+##            rec.append(b)
+##        recanswer.append(out)
+##        return recanswer
 
-                DimMoves[ix][X[ix], 0] = 1;
-                TotalDimMoves[ix, 0] = 1;
-                for (int jx = 1; jx <= M; jx++)
-                {
-                    for (int kx = 0; kx < dx; kx++)
-                    {
-                        DimMoves[ix][kx, jx] = 
-                            ((kx > 0 ? DimMoves[ix][kx - 1, jx - 1] : 0)
-                            + (kx < dx - 1 ? DimMoves[ix][kx + 1, jx - 1] : 0))
-                            % Modulo;
+#outputs array with i'th elt equal to solution after i reps
+def solve1dproblem(d,x,reps):
+    grid = [0]*(d+2)
+    grid[x] = 1
+    out = [1] + [0]*reps
+    for i in xrange(reps):
+        tempgrid = [0]*(d+2)
+        for j in xrange(1,d+1):
+            tempgrid[j] = (grid[j-1] + grid[j+1]) % modulus
+        grid = tempgrid
+        out[i+1] = reduce(lambda x,y: (x+y)%modulus, grid)
+    return out
 
-                        TotalDimMoves[ix, jx] += DimMoves[ix][kx, jx];
-                    }
 
-                    TotalDimMoves[ix, jx] %= Modulo;
-                }
-            }
 
-            var rezult = new long[N, M + 1];
+[t] = map(int,string.split(raw_input()))
+#t = 1
+#solutions = []
 
-            for (int jx = 0; jx <= M; jx++) 
-                rezult[0, jx] = TotalDimMoves[0, jx];
+for i in xrange(t):
+    n,m = map(int,string.split(raw_input()))
+    x = map(int,string.split(raw_input()))
+    d = map(int,string.split(raw_input()))
 
-            for (int ix = 1; ix < N; ix++)
-            {
-                for (int jx = 0; jx <= M; jx++)
-                {
-                    for (int kx = 0; kx <= jx; kx++)
-                    {
-                        var s = rezult[ix - 1, kx];
-                        s = (s*TotalDimMoves[ix, jx - kx])%Modulo;
-                        s = (s*CnkMod(jx, jx - kx))%Modulo;
-                        rezult[ix, jx] += s;
-                    }
+    #d=[78, 78]
+    #x = [44,44]
+    #m = 2
+    #n = 2
 
-                    rezult[ix, jx] %= Modulo;
-                }
-            }
+    binoms = binomcoeffs(m)
 
-            Console.WriteLine(rezult[N-1,M]%Modulo);
-        }
-        
-        static void Times(int T, Action solve, Action pause = null)
-        { while (T-- > 0) { solve(); if (pause != null && T > 0) pause(); } }
-        static string Line() { return Console.ReadLine(); }
-        static int Int() { return int.Parse(Line()); }
-        static void IntPair(out int N, out int M) { var NM = Ints(); N = NM[0]; M = NM[1]; }
-        static int[] Ints() { return Line().Split(' ').Select(int.Parse).ToArray(); }
-    }
-}
+    #totals[i][j] is number of ways to take j steps in only first i dimensions
+    totals = [0]*n
+    for i in xrange(n):
+        totals[i] = [0]*(m+1)
+    totals[0] = solve1dproblem(d[0],x[0],m)
+
+    for i in xrange(1,n):
+        onedanswer = solve1dproblem(d[i],x[i],m)
+        for j in xrange(m+1):
+            for k in xrange(j+1):
+                totals[i][j] = (totals[i][j] + (totals[i-1][j-k])*(onedanswer[k])*(binoms[j][k])) % modulus
+            #print totals
+
+    print totals[n-1][m]
+
+
+#for i in xrange(t):
+##    n,m = map(int,string.split(raw_input()))
+##    x = map(int,string.split(raw_input()))
+##    d = map(int,string.split(raw_input()))
+
+
+##
+##    
+##    grid = newmultiarray([a+2 for a in d])
+##    multiset(grid,x,1)
+##
+##    for i in xrange(m):
+##        tempgrid = newmultiarray([a+2 for a in d])
+##        for pt in enumpoints(d):
+##            numnei = sumneighbors(grid,pt)
+##            multiset(tempgrid,pt,numnei)
+##        grid = tempgrid
+##
+##    print sum([multiget(grid,x) for x in enumpoints(d)]) % 1000000007
+
+##    solutions.append(sum(grid)
+##
+##for s in solutions:
+##    print s
+
+

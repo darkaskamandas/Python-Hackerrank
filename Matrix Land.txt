@@ -1,72 +1,162 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-class Solution {
+puyhon 3 
 
-    static int matrixLand(int[][] A) {
-		var h = A.Length;
-		var w = A[0].Length;
-		var ss = new int[w];
-		var rr = new int[w];
-		var uu = new int[w];
-		var vv = new int[w];
-		var pp = new int[w];
-		var aa = new int[w];
-		var bb = new int[w];
-		for (var i = 0; i < h; ++i)
-		{
-			var cc = A[i];
-			for (int j = 0, m = 0; j < w; ++j)
-			{
-				ss[j] = cc[j] + (j == 0 ? 0 : ss[j - 1]);
-				uu[j] = pp[j] - m;
-				if (j > 0 && uu[j] < uu[j - 1])
-					uu[j] = uu[j - 1];
-				if (m > ss[j])
-					m = ss[j];
-			}
-			for (int j = w - 1, m = 0; j >= 0; --j)
-			{
-				rr[j] = cc[j] + (j == w - 1 ? 0 : rr[j + 1]);
-				vv[j] = pp[j] - m;
-				if (j < w - 1 && vv[j] < vv[j + 1])
-					vv[j] = vv[j + 1];
-				if (m > rr[j])
-					m = rr[j];
-			}
-			for (int j = w - 1, m = ss[j]; j >= 0; --j)
-			{
-				if (m < ss[j])
-					m = ss[j];
-				aa[j] = m + uu[j];
-			}
-			for (int j = 0, m = rr[j]; j < w; ++j)
-			{
-				if (m < rr[j])
-					m = rr[j];
-				bb[j] = m + vv[j];
-			}
-			for (var j = 0; j < w; ++j)
-				pp[j] = Math.Max(aa[j], bb[j]);
+
+
+import os, sys
+
+with open('progIn.txt', 'w') as file:
+    for line in sys.stdin:
+        file.write(line)
+
+prog = r"""
+#include <iostream>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+#include <set>
+#include <utility>
+
+using namespace std;
+
+int main() {
+	int m, n;
+	scanf("%d %d", &n, &m);
+	
+	vector<vector<int>> a(n, vector<int>(m));
+	for ( int i = 0; i < n; ++i ) for ( int j = 0; j < m; ++j ) scanf("%d", &a[i][j]);
+	
+	vector<long> foundation (m);
+	
+	
+	
+	for ( int i = n - 1; i > -1; --i ) {
+	
+		vector<int> build = a[i];
+		multiset<long> forwards, backwards;
+				
+		vector<int> pf(m), pb(m), l(m), r(m);
+		
+		pf[0] = build[0]; pb[m-1] = build[m-1];
+		for ( int j = 1; j < m; ++j ) {
+			pf[j] = build[j] + pf[j-1];
 		}
-		var s = pp[0];
-		for (var j = 1; j < w; ++j)
-			if (s < pp[j])
-				s = pp[j];
-		return s;
-    }
-
-    static void Main(String[] args) {
-        string[] tokens_n = Console.ReadLine().Split(' ');
-        int n = Convert.ToInt32(tokens_n[0]);
-        int m = Convert.ToInt32(tokens_n[1]);
-        int[][] A = new int[n][];
-        for(int A_i = 0; A_i < n; A_i++){
-           string[] A_temp = Console.ReadLine().Split(' ');
-           A[A_i] = Array.ConvertAll(A_temp,Int32.Parse);
+		for ( int j = m - 2; j > -1; --j ) {
+			pb[j] = build[j] + pb[j+1];
+		}
+		
+		r[m-1] = m - 1;
+        for ( int j = m - 2; j > -1; --j ) {
+            if ( pf[r[j+1]] <= pf[j] ) {
+                r[j] = j; 
+            } else {
+                r[j] = r[j+1];
+            }
         }
-        int result = matrixLand(A);
-        Console.WriteLine(result);
-    }
-}
+                
+        l[0] = 0;
+        for ( int j = 1; j < m; ++j ) {
+            if ( pb[l[j-1]] <= pb[j] ) {
+                l[j] = j;
+            } else {
+                l[j] = l[j-1];
+            }
+        }
+
+		
+		vector<long> foundation2(m);
+		
+		int offsetf = 0, offsetb = 0;
+		
+		
+		//when we fill these guys up, we need to add: prefix, foundation, AND RIGHT BOUND. 
+		
+		for ( int j = 0; j < m; ++j ) {
+			long val = pf[j] + foundation[j];
+			
+			if ( j < m - 1 ) {
+				val += pf[r[j]] - pf[j];
+// 				cout << "ROW " << i << " COL " << j << ": ADDED " << 	pf[r[j]] - pf[j] << ", since r[j] = " << r[j]
+// 					<< " and pf[r[j]] = " << pf[r[j]] << " and pf[j] = " << pf[j] << endl;
+			}
+// 			cout << "ROW " << i << " COL " << j << ": " << "Inserting (FB) = " << val << endl;
+						
+			forwards.insert(val);
+		}
+		backwards.insert(pb[0] + foundation[0]);
+		
+		foundation2[0] = *(forwards.rbegin());
+		
+		//cout << "pf: ";
+		//for ( auto u : pf ) cout << u << ' ';
+		//cout << endl;		
+		//cout << "LJ: ";
+		//for ( auto u : l ) cout << u << ' ';
+		//cout << endl;
+
+		
+		for ( int j = 1; j < m; ++j ) {
+			//cout << "-----------" << endl;
+			offsetf = -pf[j-1];
+			long erasable = pf[j-1] + foundation[j-1] + pf[r[j-1]] - pf[j-1];
+			
+// 			cout << "ALSO SIZE IS " << forwards.size() << "; and just erased one!" << endl;
+			forwards.erase(forwards.find(erasable));
+			
+			long val = pb[j] + foundation[j];
+			int left_bonus = j == l[j]
+				?	 (0) 
+				: 	l[j] == 0
+					?	pf[j-1]
+					:	pf[j-1] - pf[l[j-1]-1];
+
+			val += left_bonus;
+			backwards.insert(val);
+			
+			offsetb = j >= m - 1? 0 : -pb[j+1];
+			
+					
+			
+			/*if ( j != l[j] && l[j] != 0 ) {
+				left_bonus = pf[j-1] - pf[l[j-1]];
+			} else {
+				cout << "keep debugging " << endl;
+			}*/
+			//cout << "left_bonus: " << left_bonus << endl;
+								
+			int right_bonus = pf[r[j]] - pf[j];
+						
+//   			cout << "i: " << i << "; j: " << j << ";frb: " << *(forwards.rbegin()) << ";brb: " << *(backwards.rbegin()) << endl;
+//   			cout<< "of: "<<offsetf<< "; ob: " << offsetb << endl;
+//   			cout << "lb: " << left_bonus << "; rb: " << right_bonus << endl;
+//   			cout << "lj: " << l[j] << "; rj: " << r[j] << endl;
+			foundation2[j] = forwards.size()
+				?	max( *(forwards.rbegin()) + offsetf + left_bonus, *(backwards.rbegin()) + offsetb + right_bonus)
+				:	left_bonus + *(backwards.rbegin()) + offsetb;
+//  			cout << "computed value: " << foundation2[j] << endl;
+		}
+		
+//  		for ( auto u : foundation ) cout << u << ' ';
+//  		cout << endl;
+		
+		foundation = foundation2;
+		
+		
+	}
+//  		for ( auto u : foundation ) cout << u << ' ';
+//  		cout << endl;
+		
+	
+	long b = -2000000000;
+	for ( auto i : foundation ) b = max(b, i);
+	cout << b << endl;
+}"""
+
+if not os.path.isfile('compiled.txt'):
+    open('prog.cpp', 'w').write(prog)
+    os.system("g++ -std=c++17 -O3 -oprog prog.cpp")
+    open('compiled.txt', 'w').write('BRAH')
+
+os.system("./prog < progIn.txt > progOut.txt")
+print(open('progOut.txt', 'r').read().strip())
+
+
