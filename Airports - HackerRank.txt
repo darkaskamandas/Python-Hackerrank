@@ -1,0 +1,880 @@
+
+from heapq import heappush, heappop
+from bisect import bisect_left, bisect_right, insort
+from collections import Sequence, MutableSequence
+from functools import wraps
+from itertools import chain, repeat, starmap
+from math import log as log_e
+import operator as op
+from operator import iadd, add
+from sys import hexversion
+
+if hexversion < 0x03000000:
+    from itertools import izip as zip  # pylint: disable=no-name-in-module
+    from itertools import imap as map  # pylint: disable=no-name-in-module
+    try:
+        from thread import get_ident
+    except ImportError:
+        from dummy_thread import get_ident
+else:
+    from functools import reduce
+    try:
+        from _thread import get_ident
+    except ImportError:
+        from _dummy_thread import get_ident # pylint: disable=import-error
+
+LOAD = 10000
+
+def recursive_repr(func):
+    """Decorator to prevent infinite repr recursion."""
+    repr_running = set()
+
+    @wraps(func)
+    def wrapper(self):
+        "Return ellipsis on recursive re-entry to function."
+        key = id(self), get_ident()
+
+        if key in repr_running:
+            return '...'
+
+        repr_running.add(key)
+
+        try:
+            return func(self)
+        finally:
+            repr_running.discard(key)
+
+    return wrapper
+
+class SortedList(MutableSequence):
+    """
+    SortedList provides most of the same methods as a list but keeps the items
+    in sorted order.
+    """
+    # pylint: disable=too-many-ancestors
+    def __init__(self, iterable=None):
+        """
+        SortedList provides most of the same methods as a list but keeps the
+        items in sorted order.
+        An optional *iterable* provides an initial series of items to populate
+        the SortedList.
+        """
+        self._len = 0
+        self._lists = []
+        self._maxes = []
+        self._index = []
+        self._load = LOAD
+        self._half = LOAD >> 1
+        self._dual = LOAD << 1
+        self._offset = 0
+
+        if iterable is not None:
+            self._update(iterable)
+
+    def clear(self):
+        """Remove all the elements from the list."""
+        self._len = 0
+        del self._lists[:]
+        del self._maxes[:]
+        del self._index[:]
+
+    _clear = clear
+
+    def add(self, val):
+        """Add the element *val* to the list."""
+        _lists = self._lists
+        _maxes = self._maxes
+
+        if _maxes:
+            pos = bisect_right(_maxes, val)
+
+            if pos == len(_maxes):
+                pos -= 1
+                _lists[pos].append(val)
+                _maxes[pos] = val
+            else:
+                insort(_lists[pos], val)
+
+            self._expand(pos)
+        else:
+            _lists.append([val])
+            _maxes.append(val)
+
+        self._len += 1
+
+    def _expand(self, pos):
+        _lists = self._lists
+        _index = self._index
+
+        if len(_lists[pos]) > self._dual:
+            _maxes = self._maxes
+            _load = self._load
+
+            _lists_pos = _lists[pos]
+            half = _lists_pos[_load:]
+            del _lists_pos[_load:]
+            _maxes[pos] = _lists_pos[-1]
+
+            _lists.insert(pos + 1, half)
+            _maxes.insert(pos + 1, half[-1])
+
+            del _index[:]
+        else:
+            if _index:
+                child = self._offset + pos
+                while child:
+                    _index[child] += 1
+                    child = (child - 1) >> 1
+                _index[0] += 1
+
+    def update(self, iterable):
+        """Update the list by adding all elements from *iterable*."""
+        _lists = self._lists
+        _maxes = self._maxes
+        values = sorted(iterable)
+
+        if _maxes:
+            if len(values) * 4 >= self._len:
+                values.extend(chain.from_iterable(_lists))
+                values.sort()
+                self._clear()
+            else:
+                _add = self.add
+                for val in values:
+                    _add(val)
+                return
+
+        _load = self._load
+        _lists.extend(values[pos:(pos + _load)]
+                      for pos in range(0, len(values), _load))
+        _maxes.extend(sublist[-1] for sublist in _lists)
+        self._len = len(values)
+        del self._index[:]
+
+    _update = update
+
+
+    def _delete(self, pos, idx):
+        """Delete the item at the given (pos, idx).
+        Combines lists that are less than half the load level.
+        Updates the index when the sublist length is more than half the load
+        level. This requires decrementing the nodes in a traversal from the leaf
+        node to the root. For an example traversal see self._loc.
+        """
+        _lists = self._lists
+        _maxes = self._maxes
+        _index = self._index
+
+        _lists_pos = _lists[pos]
+
+        del _lists_pos[idx]
+        self._len -= 1
+
+        len_lists_pos = len(_lists_pos)
+
+        if len_lists_pos > self._half:
+
+            _maxes[pos] = _lists_pos[-1]
+
+            if _index:
+                child = self._offset + pos
+                while child > 0:
+                    _index[child] -= 1
+                    child = (child - 1) >> 1
+                _index[0] -= 1
+
+        elif len(_lists) > 1:
+
+            if not pos:
+                pos += 1
+
+            prev = pos - 1
+            _lists[prev].extend(_lists[pos])
+            _maxes[prev] = _lists[prev][-1]
+
+            del _lists[pos]
+            del _maxes[pos]
+            del _index[:]
+
+            self._expand(prev)
+
+        elif len_lists_pos:
+
+            _maxes[pos] = _lists_pos[-1]
+
+        else:
+
+            del _lists[pos]
+            del _maxes[pos]
+            del _index[:]
+
+    def _loc(self, pos, idx):
+
+        if not pos:
+            return idx
+
+        _index = self._index
+
+        if not _index:
+            self._build_index()
+
+        total = 0
+
+        # Increment pos to point in the index to len(self._lists[pos]).
+
+        pos += self._offset
+
+        # Iterate until reaching the root of the index tree at pos = 0.
+
+        while pos:
+
+            # Right-child nodes are at odd indices. At such indices
+            # account the total below the left child node.
+
+            if not pos & 1:
+                total += _index[pos - 1]
+
+            # Advance pos to the parent node.
+
+            pos = (pos - 1) >> 1
+
+        return total + idx
+
+    def _pos(self, idx):
+
+        if idx < 0:
+            last_len = len(self._lists[-1])
+
+            if (-idx) <= last_len:
+                return len(self._lists) - 1, last_len + idx
+
+            idx += self._len
+
+            if idx < 0:
+                raise IndexError('list index out of range')
+        elif idx >= self._len:
+            raise IndexError('list index out of range')
+
+        if idx < len(self._lists[0]):
+            return 0, idx
+
+        _index = self._index
+
+        if not _index:
+            self._build_index()
+
+        pos = 0
+        child = 1
+        len_index = len(_index)
+
+        while child < len_index:
+            index_child = _index[child]
+
+            if idx < index_child:
+                pos = child
+            else:
+                idx -= index_child
+                pos = child + 1
+
+            child = (pos << 1) + 1
+
+        return (pos - self._offset, idx)
+
+
+    def __delitem__(self, idx):
+        """Remove the element at *idx*. Supports slicing."""
+        if isinstance(idx, slice):
+            start, stop, step = idx.indices(self._len)
+
+            if step == 1 and start < stop:
+                if start == 0 and stop == self._len:
+                    return self._clear()
+                elif self._len <= 8 * (stop - start):
+                    values = self._getitem(slice(None, start))
+                    if stop < self._len:
+                        values += self._getitem(slice(stop, None))
+                    self._clear()
+                    return self._update(values)
+
+            indices = range(start, stop, step)
+
+            # Delete items from greatest index to least so
+            # that the indices remain valid throughout iteration.
+
+            if step > 0:
+                indices = reversed(indices)
+
+            _pos, _delete = self._pos, self._delete
+
+            for index in indices:
+                pos, idx = _pos(index)
+                _delete(pos, idx)
+        else:
+            pos, idx = self._pos(idx)
+            self._delete(pos, idx)
+
+    _delitem = __delitem__
+
+    def __getitem__(self, idx):
+        """Return the element at *idx*. Supports slicing."""
+        _lists = self._lists
+
+        if isinstance(idx, slice):
+            start, stop, step = idx.indices(self._len)
+
+            if step == 1 and start < stop:
+                if start == 0 and stop == self._len:
+                    return reduce(iadd, self._lists, [])
+
+                start_pos, start_idx = self._pos(start)
+
+                if stop == self._len:
+                    stop_pos = len(_lists) - 1
+                    stop_idx = len(_lists[stop_pos])
+                else:
+                    stop_pos, stop_idx = self._pos(stop)
+
+                if start_pos == stop_pos:
+                    return _lists[start_pos][start_idx:stop_idx]
+
+                prefix = _lists[start_pos][start_idx:]
+                middle = _lists[(start_pos + 1):stop_pos]
+                result = reduce(iadd, middle, prefix)
+                result += _lists[stop_pos][:stop_idx]
+
+                return result
+
+            if step == -1 and start > stop:
+                result = self._getitem(slice(stop + 1, start + 1))
+                result.reverse()
+                return result
+
+            # Return a list because a negative step could
+            # reverse the order of the items and this could
+            # be the desired behavior.
+
+            indices = range(start, stop, step)
+            return list(self._getitem(index) for index in indices)
+        else:
+            if self._len:
+                if idx == 0:
+                    return _lists[0][0]
+                elif idx == -1:
+                    return _lists[-1][-1]
+            else:
+                raise IndexError('list index out of range')
+
+            if 0 <= idx < len(_lists[0]):
+                return _lists[0][idx]
+
+            len_last = len(_lists[-1])
+
+            if -len_last < idx < 0:
+                return _lists[-1][len_last + idx]
+
+            pos, idx = self._pos(idx)
+            return _lists[pos][idx]
+
+    _getitem = __getitem__
+
+
+    def __setitem__(self, index, value):
+        _lists = self._lists
+        _maxes = self._maxes
+        _check_order = self._check_order
+        _pos = self._pos
+
+        if isinstance(index, slice):
+            _len = self._len
+            start, stop, step = index.indices(_len)
+            indices = range(start, stop, step)
+
+            # Copy value to avoid aliasing issues with self and cases where an
+            # iterator is given.
+
+            values = tuple(value)
+
+            if step != 1:
+                if len(values) != len(indices):
+                    raise ValueError(
+                        'attempt to assign sequence of size %s'
+                        ' to extended slice of size %s'
+                        % (len(values), len(indices)))
+
+                # Keep a log of values that are set so that we can
+                # roll back changes if ordering is violated.
+
+                log = []
+                _append = log.append
+
+                for idx, val in zip(indices, values):
+                    pos, loc = _pos(idx)
+                    _append((idx, _lists[pos][loc], val))
+                    _lists[pos][loc] = val
+                    if len(_lists[pos]) == (loc + 1):
+                        _maxes[pos] = val
+
+                try:
+                    # Validate ordering of new values.
+
+                    for idx, _, newval in log:
+                        _check_order(idx, newval)
+
+                except ValueError:
+
+                    # Roll back changes from log.
+
+                    for idx, oldval, _ in log:
+                        pos, loc = _pos(idx)
+                        _lists[pos][loc] = oldval
+                        if len(_lists[pos]) == (loc + 1):
+                            _maxes[pos] = oldval
+
+                    raise
+            else:
+                if start == 0 and stop == _len:
+                    self._clear()
+                    return self._update(values)
+
+                if stop < start:
+                    # When calculating indices, stop may be less than start.
+                    # For example: ...[5:3:1] results in slice(5, 3, 1) which
+                    # is a valid but not useful stop index.
+                    stop = start
+
+                if values:
+
+                    # Check that given values are ordered properly.
+
+                    alphas = iter(values)
+                    betas = iter(values)
+                    next(betas)
+                    pairs = zip(alphas, betas)
+
+                    if not all(alpha <= beta for alpha, beta in pairs):
+                        raise ValueError('given values not in sort order')
+
+                    # Check ordering in context of sorted list.
+
+                    if start and self._getitem(start - 1) > values[0]:
+                        message = '{0!r} not in sort order at index {1}'.format(
+                            values[0], start)
+                        raise ValueError(message)
+
+                    if stop != _len and self._getitem(stop) < values[-1]:
+                        message = '{0!r} not in sort order at index {1}'.format(
+                            values[-1], stop)
+                        raise ValueError(message)
+
+                # Delete the existing values.
+
+                self._delitem(index)
+
+                # Insert the new values.
+
+                _insert = self.insert
+                for idx, val in enumerate(values):
+                    _insert(start + idx, val)
+        else:
+            pos, loc = _pos(index)
+            _check_order(index, value)
+            _lists[pos][loc] = value
+            if len(_lists[pos]) == (loc + 1):
+                _maxes[pos] = value
+
+
+    def __len__(self):
+        """Return the number of elements in the list."""
+        return self._len
+
+    def bisect_left(self, val):
+        _maxes = self._maxes
+
+        if not _maxes:
+            return 0
+
+        pos = bisect_left(_maxes, val)
+
+        if pos == len(_maxes):
+            return self._len
+
+        idx = bisect_left(self._lists[pos], val)
+
+        return self._loc(pos, idx)
+
+    def bisect_right(self, val):
+        _maxes = self._maxes
+
+        if not _maxes:
+            return 0
+
+        pos = bisect_right(_maxes, val)
+
+        if pos == len(_maxes):
+            return self._len
+
+        idx = bisect_right(self._lists[pos], val)
+
+        return self._loc(pos, idx)
+
+    bisect = bisect_right
+    _bisect_right = bisect_right
+
+
+    def insert(self, idx, val):
+        """
+        Insert the element *val* into the list at *idx*. Raises a ValueError if
+        the *val* at *idx* would violate the sort order.
+        """
+        # pylint: disable=arguments-differ
+        _len = self._len
+        _lists = self._lists
+        _maxes = self._maxes
+
+        if idx < 0:
+            idx += _len
+        if idx < 0:
+            idx = 0
+        if idx > _len:
+            idx = _len
+
+        if not _maxes:
+            # The idx must be zero by the inequalities above.
+            _maxes.append(val)
+            _lists.append([val])
+            self._len = 1
+            return
+
+        if not idx:
+            if val > _lists[0][0]:
+                msg = '{0!r} not in sort order at index {1}'.format(val, 0)
+                raise ValueError(msg)
+            else:
+                _lists[0].insert(0, val)
+                self._expand(0)
+                self._len += 1
+                return
+
+        if idx == _len:
+            pos = len(_lists) - 1
+            if _lists[pos][-1] > val:
+                msg = '{0!r} not in sort order at index {1}'.format(val, _len)
+                raise ValueError(msg)
+            else:
+                _lists[pos].append(val)
+                _maxes[pos] = _lists[pos][-1]
+                self._expand(pos)
+                self._len += 1
+                return
+
+        pos, idx = self._pos(idx)
+        idx_before = idx - 1
+        if idx_before < 0:
+            pos_before = pos - 1
+            idx_before = len(_lists[pos_before]) - 1
+        else:
+            pos_before = pos
+
+        before = _lists[pos_before][idx_before]
+        if before <= val <= _lists[pos][idx]:
+            _lists[pos].insert(idx, val)
+            self._expand(pos)
+            self._len += 1
+        else:
+            msg = '{0!r} not in sort order at index {1}'.format(val, idx)
+            raise ValueError(msg)
+
+
+    @recursive_repr
+    def __repr__(self):
+        """Return string representation of sequence."""
+        return '{0}({1!r})'.format(type(self).__name__, list(self))
+
+
+
+class SortedList(list):
+
+    def add(self, u):
+        insort(self, u)
+
+    def bisect_left(self, u):
+        return bisect_left(self, u)
+
+    def bisect_right(self, u):
+        return bisect_right(self, u)
+
+class Priority():
+
+    def __init__(self):
+        self.data = []
+        self.dictio = dict()
+        self.valid = 'valid'
+        self.invalid = 'not valid'
+
+    def insert(self, value, id):
+        # assert id not in self.dictio, '{}, {}, {}'.format(id, self.data, self.dictio)
+        entry = [-value, id, self.valid]
+        self.dictio[id] = entry
+        heappush(self.data, entry)
+
+    def replace(self, value, id):
+        self.delete(id)
+        self.insert(value, id)
+
+    def delete(self, id):
+        # assert id in self.dictio, '{}, {}'.format(id, self.data)
+        # if id in self.dictio:
+        entry = self.dictio.pop(id)
+        entry[-1] = self.invalid
+        # assert id not in self.dictio
+
+    def max_valid_entry(self):
+        while True:
+            if len(self.data) == 0:
+                return None
+            value, id, state = self.data[0]
+            if state == self.invalid:
+                heappop(self.data)
+            else:
+                return -value
+
+
+def add2core(core_info, value):
+
+    core = core_info['core']
+    widths = core_info['widths']
+    c_left = core_info['cleft']
+    c_right = core_info['cright']
+    size_core = core_info['size']
+
+    if size_core == 0:
+        core_info['cleft'] = value
+        core_info['cright'] = value
+        core_info['size'] += 1
+        core.add(value)
+
+    elif value < c_left:
+        core_info['cleft'] = value
+        widths.insert(c_left - value, value)
+        core_info['size'] += 1
+        core.add(value)
+
+    elif value > c_right:
+        core_info['cright'] = value
+        widths.insert(value - c_right, c_right)
+        core_info['size'] += 1
+        core.add(value)
+
+    else:
+
+        # Locate neighbors
+        j = bisect_left(core, value)
+        n_right = core[j]
+
+        if value == n_right:
+            pass
+
+        else:
+            n_left = core[j - 1]
+            widths.replace(value - n_left, n_left)
+            widths.insert(n_right - value, value)
+            core_info['size'] += 1
+            core.add(value)
+
+
+def clean_core_left(core_info, new_left, d):
+    core = core_info['core']
+    widths = core_info['widths']
+    c_left = core_info['cleft']
+    c_right = core_info['cright']
+    size_core = core_info['size']
+
+    thres = new_left + d
+
+    if size_core == 0:
+        pass
+
+    elif c_right < thres:
+        pass
+
+    elif c_left < thres:
+        i = core.bisect_left(thres)
+        j = core.bisect_right(c_right)
+        for c in core[i - 1:j - 1]:
+            widths.delete(c)
+        core_info['cright'] = core[i - 1]
+        # assert len([x for x in core if thres <= x <= c_right]) == j - i
+        # assert core_info['cright'] < thres
+        core_info['size'] -= (j - i)
+
+    else:
+        i = core.bisect_left(c_left)
+        j = core.bisect_right(c_right)
+        for c in core[i:j-1]:
+            widths.delete(c)
+        core_info['cleft'] = None
+        core_info['cright'] = None
+        core_info['size'] = 0
+
+
+def clean_core_right(core_info, new_right, d):
+    core = core_info['core']
+    widths = core_info['widths']
+    c_left = core_info['cleft']
+    c_right = core_info['cright']
+    size_core = core_info['size']
+
+    thres = new_right - d
+
+    if size_core == 0:
+        pass
+
+    elif c_left > thres:
+        pass
+
+    elif c_right > thres:
+        i = core.bisect_left(c_left)
+        j = core.bisect_right(thres)
+        for c in core[i:j]:
+            widths.delete(c)
+        core_info['cleft'] = core[j]
+        # assert len([x for x in core if c_left <= x <= thres]) == j - i
+        # assert core_info['cleft'] > thres
+        core_info['size'] -= (j - i)
+
+    else:
+        i = core.bisect_left(c_left)
+        j = core.bisect_right(c_right)
+        for c in core[i:j - 1]:
+            widths.delete(c)
+        core_info['cleft'] = None
+        core_info['cright'] = None
+        core_info['size'] = 0
+
+
+def progress_corev1(core_info, new_point, d):
+
+    x_left = core_info['left']
+    x_right = core_info['right']
+
+    if new_point < x_left:
+        core_info['left'] = new_point
+        if max(x_left - new_point, x_right - x_left) < d:
+            add2core(core_info, x_left)
+
+        # Clean irrelevant
+        clean_core_left(core_info, new_point, d)
+
+    elif new_point > x_right:
+        core_info['right'] = new_point
+        if max(new_point - x_right, x_right - x_left) < d:
+            add2core(core_info, x_right)
+
+        # Clean irrelevant
+        clean_core_right(core_info, new_point, d)
+
+    elif (x_right - new_point >= d) or (new_point - x_left >= d):
+        pass
+
+    else:
+        add2core(core_info, new_point)
+
+
+def statev1(core_info, d):
+
+    x_left = core_info['left']
+    x_right = core_info['right']
+    c_left = core_info['cleft']
+    c_right = core_info['cright']
+    size_core = core_info['size']
+    delta = x_right - x_left
+    core = core_info['core']
+    widths = core_info['widths']
+
+    if size_core == 0:
+        return max(d - delta, 0)
+
+    else:
+        delta_0 = c_left - x_left
+        delta_1 = x_right - c_right
+
+        if size_core == 1:
+            return min(d - delta_0, d - delta_1)
+        else:
+            mw = widths.max_valid_entry()
+            # i = core.bisect_left(c_left)
+            # j = core.bisect_right(c_right)
+            # assert mw == max([core[i] - core[i - 1] for i in range(i + 1, j)])
+            return min([2 * d - mw - delta, d - delta_0, d - delta_1])
+
+def assertion(core_info, positions, d):
+    x_left = core_info['left']
+    x_right = core_info['right']
+    core = core_info['core']
+    widths = core_info['widths']
+    c_left = core_info['cleft']
+    c_right = core_info['cright']
+    size_core = core_info['size']
+
+    tpositions = sorted(positions)
+    tleft = tpositions[0]
+    tright = tpositions[-1]
+    tcore = [x for x in sorted(list(set(tpositions[1: -1]))) if tright - d < x < tleft + d]
+    tsizecore = len(tcore)
+    if len(tcore) == 0:
+        tc_left = None
+        tc_right = None
+    else:
+        tc_left = tcore[0]
+        tc_right = tcore[-1]
+
+    assert tleft == x_left
+    assert tright == x_right
+    if tsizecore >= 0:
+        np.testing.assert_array_equal([x for x in core if c_left <= x <= c_right], tcore)
+    assert tsizecore == size_core, '{}, {}, {}'.format(tsizecore, size_core, tcore)
+    assert tc_left == c_left, '{}, {}, {}, {}'.format(tc_left, c_left, tcore, positions)
+    assert tc_right == c_right, '{}, {}'.format(tc_right, c_right)
+    if tsizecore > 1:
+        assert max([tcore[i] - tcore[i - 1] for i in range(1, tsizecore)]) == max([core[i] - core[i - 1] for i in range(1, tsizecore)])
+        assert max([tcore[i] - tcore[i - 1] for i in range(1, tsizecore)]) == widths.max_valid_entry()
+
+
+def airports(d, positions):
+    states = []
+    core_info = {'left': None,
+                 'right': None,
+                 'core': SortedList(),
+                 'widths': Priority(),
+                 'cleft': None,
+                 'cright': None,
+                 'size': 0}
+    x = positions[0]
+    y = positions[1]
+    pushed = [x, y]
+    core_info['left'] = min(x, y)
+    core_info['right'] = max(x, y)
+    states.append(0)
+    states.append(statev1(core_info, d))
+    for z in positions[2:]:
+        pushed.append(z)
+        # print z
+        # print z in core_info['core']
+        progress_corev1(core_info, z, d)
+        states.append(statev1(core_info, d))
+        # pprint(core_info)
+        # assertion(core_info, pushed, d)
+
+    return states
+
+
+if __name__ == "__main__":
+    q = int(raw_input().strip())
+    for a0 in xrange(q):
+        n, d = raw_input().strip().split(' ')
+        n, d = [int(n), int(d)]
+        x = [int(xx) for xx in raw_input().strip().split(' ')]
+        result = airports(d, x)
+        print " ".join(map(str, result))
+
+

@@ -1,0 +1,55 @@
+#!/bin/python3
+MOD = 998244353
+
+def inv(v):
+	'''
+		Return v^(-1) mod MOD (since MOD is prime, this works)
+	'''
+	return pow(v%MOD,MOD-2,MOD) % MOD
+
+class Node(object):
+	def __init__(self,i,p0,rolls):
+		'''
+			Initialize a node with index i and initial probability p0
+		'''
+		self.child = None
+		self.parents = []
+		self.lastProb = p0
+		self.currentProb = 0
+		self.index = i
+
+	def clear(self):
+		self.lastProb, self.currentProb = self.currentProb,0
+
+	def update(self,diceProbs,depth=0,baseProb=None):
+		if baseProb == None:
+			baseProb = self.lastProb
+		if baseProb == 0 or depth >= len(diceProbs):
+			return
+		self.currentProb += diceProbs[depth]*baseProb
+		self.currentProb %= MOD
+		self.child.update(diceProbs,depth+1,baseProb)
+
+
+
+
+
+def DRW(nodeChildren,diceProbs,rolls):
+	p0 = inv(len(nodeChildren))
+	nodes = [Node(i,p0,rolls) for i in range(len(nodeChildren))]
+	for i,c in enumerate(nodeChildren):
+		nodes[i].child = nodes[c]
+		nodes[c].parents.append(nodes[i])
+	for r in range(1,rolls+1):
+		for n in nodes:
+			n.update(diceProbs)
+		for n in nodes: n.clear()
+	return [n.lastProb for n in nodes]
+import sys
+if __name__=="__main__":
+	data = sys.stdin.read().split("\n")
+	n,m,k = map(int,data[0].strip().split(" "))
+	children = list(map(lambda x: int(x)-1,data[1].strip().split(" ")))
+	diceProbs = list(map(int,data[2].strip().split(" ")))
+	for p in DRW(children,diceProbs,k):
+		print(p)

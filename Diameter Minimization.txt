@@ -1,0 +1,68 @@
+import sys, time, random
+from time import time
+from collections import *
+from decimal import *
+from math import *
+from bisect import *
+#from deque import *
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+t0 = time()
+
+#N, D = 787, 3
+N, D=[int(i) for i in input().strip().split(' ')]
+
+RN=range(N)
+RD=range(D)
+
+MINDIAM=1
+NN=D
+while NN < N: NN *=D; MINDIAM+=1
+eprint("MINDIAM=",MINDIAM)
+
+out=[[] for n in RN]
+
+def diam(n0):
+    dis=[9999]*N
+    q = deque()
+    for o in out[n0]:
+        dis[o]=1
+        q.append(o)
+    while len(q):
+        n = q.popleft()
+        dd=dis[n]+1
+        for o in out[n]:
+            if dis[o] <= dd: continue
+            dis[o]=dd
+            q.append(o)
+    r=max(dis)
+    #eprint("dis[%d]=" % n0, dis)
+    #eprint("diam[%d]="%n0,r, " mind=",md)
+    return r
+
+def diamall():
+    lo=N
+    hi=0
+    for n in RN:
+        d=diam(n)
+        lo=min(lo, d)
+        hi=max(hi, d)
+    eprint("DIAMALL:",lo,hi)
+    return hi
+
+o=1
+for n in RN:
+    for d in RD:
+        out[n].append(o)
+        o+=1
+        if o==N: o=0
+
+ans=diamall()
+eprint("t=", time()-t0)
+print(ans)
+
+for n in RN:
+    print(*out[n])
+    #if n>10: eprint("BREAK"); break
