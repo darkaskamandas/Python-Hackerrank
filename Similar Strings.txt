@@ -1,0 +1,109 @@
+import sys
+import itertools as it
+import time
+
+q,n = [int(m) for m in input().strip().split()]
+S = input().strip()
+Cases = []
+for i in range(n):
+    Cases.append([int(m) for m in input().strip().split()])
+
+CompDict = {}
+
+MaxSize = 0
+for C in Cases:
+    Size = C[1]-C[0]+1
+    MaxSize = max([MaxSize,Size])
+
+MaxPrecomp = 5
+MaxBin = min([MaxPrecomp,MaxSize])
+BinLoc = [[] for m in range(MaxBin)]
+BinLoc[0] = [0 for m in range(q)]
+BinCount = [{} for m in range(MaxBin)]
+IndexBins = [{} for m in range(MaxBin)]
+MaxPowerList = 1
+for Width in range(2,MaxBin+1):
+    PowerList = [(2**m)*MaxPowerList for m in range(Width-1)]
+    MaxPowerList = PowerList[-1]*2
+    for StartInd in range(q-Width+1):
+        BinVal = BinLoc[Width-2][StartInd]
+        CheckInd2 = Width-1
+        for C1,CheckInd1 in enumerate(range(Width-1)):
+            TupLoc = (StartInd+CheckInd1,StartInd+CheckInd2)
+            try:
+                CompVal = CompDict[TupLoc]
+            except:
+                CompDict[TupLoc] = (S[TupLoc[0]]==S[TupLoc[1]])
+                CompVal = CompDict[TupLoc]
+            if CompVal:
+                BinVal += PowerList[C1]
+        BinLoc[Width-1].append(BinVal)
+        try:
+            BinCount[Width-1][BinVal] += 1
+            IndexBins[Width-1][BinVal].append(StartInd)
+        except:
+            BinCount[Width-1][BinVal] = 1
+            IndexBins[Width-1][BinVal] = [StartInd]
+
+SolnList = [None for m in range(n)]
+for cInd,C in enumerate(Cases):
+    StartPy = C[0]-1
+    FrameLen = C[1] - C[0] + 1
+    if FrameLen == 1:
+        SolnList[cInd] = q
+    elif FrameLen <=MaxPrecomp:
+        SolnList[cInd] = BinCount[FrameLen-1][BinLoc[FrameLen-1][StartPy]]
+    else:
+        Count = 0
+        SrefNorm = ''
+        
+        for i in IndexBins[MaxBin-1][BinLoc[MaxBin-1][StartPy]]:
+            if i==StartPy:
+                Count += 1
+            elif i+FrameLen <=q:
+                ExcessFrame = (FrameLen-1)%(MaxBin-1)+1
+                nMaxBinFrames = int((FrameLen-ExcessFrame)/(MaxBin-1))
+                Match = True
+                for j in range(1,nMaxBinFrames):
+                    if not (BinLoc[MaxBin-1][StartPy+j*(MaxBin-1)]==BinLoc[MaxBin-1][i+j*(MaxBin-1)]):
+                        Match = False
+                        break
+                if Match:
+                    Match = BinLoc[ExcessFrame-1][StartPy+nMaxBinFrames*(MaxBin-1)]==BinLoc[ExcessFrame-1][i+nMaxBinFrames*(MaxBin-1)]
+
+                if Match:
+                    if SrefNorm == '':                        
+                        Sref = S[StartPy:StartPy+FrameLen]
+                        CharMap = {}
+                        SrefNorm = ''
+                        CurrentChr = 97
+                        for Char in Sref:
+                            try:
+                                SrefNorm += CharMap[Char]
+                            except:
+                                CharMap[Char] = chr(CurrentChr)
+                                CurrentChr += 1
+                                SrefNorm += CharMap[Char]
+                    
+                    Si = S[i:i+FrameLen]
+                    CharMap = {}
+                    SiNorm = ''
+                    CurrentChr = 97
+                    for Char in Si:
+                        try:
+                            SiNorm += CharMap[Char]
+                        except:
+                            CharMap[Char] = chr(CurrentChr)
+                            CurrentChr += 1
+                            SiNorm += CharMap[Char]
+                    if (SiNorm!=SrefNorm):
+                        Match=False
+
+                if Match:
+                    Count += 1
+
+        SolnList[cInd] = Count
+
+for i in SolnList:
+    print(i)
+    
