@@ -1,0 +1,35 @@
+__author__ = 'Ahn'
+
+N, M = input().split()
+N = int(N)
+M = int(M)
+
+child = {}
+tree = {}
+
+for i in range(1, M+1):
+    ui, vi = input().split()
+    ui = int(ui)
+    vi = int(vi)
+
+    if vi not in tree.keys():
+        tree[vi] = [ui]
+    else:
+        tree[vi].append(ui)
+
+    child[i] = 1
+
+for i in range(M+1, 1, -1):
+    if i not in tree.keys():
+        child[i] = 1
+    else:
+        for j in tree[i]:
+            child[i] = child[i] +  child[j]
+
+
+count = 0
+for i in range(1, M+1):
+    if child[i] % 2 == 0:
+        count+=1
+
+print(count)

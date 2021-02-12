@@ -1,0 +1,100 @@
+from __future__ import print_function
+try: input = raw_input
+except: pass
+
+# i is rows/down, j is cols/across
+
+# Carry out order for a given position
+def rotate_clockwise(pos, i, j, width):
+  (offi,offj) = (pos[0]-i, pos[1]-j)
+  return (i+offj, j+width-1-offi)
+
+def rotate_cntr_clockwise(pos, i, j, width):
+  (offi,offj) = (pos[0]-i, pos[1]-j)
+  return (i+width-1-offj, j+offi)
+
+class Rotation:
+  def __init__(self,i,j,width,oidx,parent=None):
+    (self.i,self.j,self.width,self.dom_i,self.dom_j) = (i,j,width,i,j)
+    if parent is not None:
+      (posi,posj) = (parent.dom_i+i-parent.i, parent.dom_j+j-parent.j)
+      for i in range(oidx % 4):
+        (posi,posj) = rotate_cntr_clockwise((posi,posj), parent.dom_i, parent.dom_j, parent.width)
+        posi -= width-1 # get top right corner
+      self.dom_i = posi
+      self.dom_j = posj
+
+  def in_domain(self,pos):
+    return (pos[0] >= self.dom_i and pos[0] < self.dom_i+self.width and
+            pos[1] >= self.dom_j and pos[1] < self.dom_j+self.width)
+
+  # pos must be in the domain of this rotation (dom_i,dom_j)->(dom_i+w,dom_j+w)
+  # after rotation, pos is within rectangle (i,j)->(i+w,j+w)
+  # oidx is the index of this rotation, used to calculate number of rotations
+  def map_pos(self,pos,oidx):
+    # assert pos[0] >= self.dom_i and pos[0] < self.dom_i+self.width
+    # assert pos[1] >= self.dom_j and pos[1] < self.dom_j+self.width
+    (offi,offj) = (pos[0]-self.dom_i, pos[1]-self.dom_j)
+    (offi,offj) = (self.i+offi, self.j+offj) # apply new offsets
+    for i in range((oidx+1) % 4):
+      (offi,offj) = rotate_clockwise((offi,offj), self.i, self.j, self.width)
+    # assert offi >= self.i and offi < self.i+self.width
+    # assert offj >= self.j and offj < self.j+self.width
+    return (offi,offj)
+
+  def __str__(self):
+    fields = [str(x) for x in [self.i,self.j,self.width,self.dom_i,self.dom_j]]
+    return "Rotation("+",".join(fields)+")"
+
+N = int(input())
+S = int(input())
+
+# for each order, calculate the final offset and number of rotations
+rots = []
+p = None
+
+for s in range(S):
+  (a,b,d) = ( int(x) for x in input().split(' ') )
+  # if d > 0:
+  rot = Rotation(a-1,b-1,d+1,s,p)
+  rots.append(rot)
+  p = rot
+
+# for i in range(len(rots)): print(i,rots[i])
+
+def find_last_rotation(l,pos):
+  if not l[0].in_domain(pos): return None
+  if l[-1].in_domain(pos): return len(l)-1
+  (s,e) = (0,len(l)-1)
+  while s <= e:
+    mid = int((s+e)/2)
+    if l[mid].in_domain(pos):
+      if not l[mid+1].in_domain(pos): return mid
+      else: s = mid+1
+    else: e = mid-1
+  return s
+
+def knight_to_coord(posidx, N):
+  return (int(posidx / N), posidx % N)
+
+def get_knight_final_pos(knight, N, orders):
+  pos = knight_to_coord(knight, N)
+  oidx = find_last_rotation(orders, pos)
+  if oidx is not None: pos = orders[oidx].map_pos(pos, oidx)
+  return pos
+
+L = int(input())
+for l in range(L):
+  knight = int(input())
+  pos = get_knight_final_pos(knight, N, rots)
+  print(pos[0]+1, pos[1]+1)
+
+# Print full board
+# M = [ [ 0 for y in range(x,x+N) ] for x in range(0,N*N,N) ]
+# for i in range(0,N*N):
+#   pos = get_knight_final_pos(i, N, rots)
+#   print("#knight",i,"=",pos)
+#   M[pos[0]][pos[1]] = i
+
+# print("m:")
+# for r in M: print(' '.join([ '%2i' % (x) for x in r ]))
