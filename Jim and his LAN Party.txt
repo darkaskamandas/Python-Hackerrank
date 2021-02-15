@@ -1,0 +1,67 @@
+import sys
+
+class Vertex(object):
+    def __init__(self, i, c, cc):
+        self.i = i
+        self.c = c
+        self.cc = cc
+        self.e = []
+
+def merge_cc(cc, v, i, j, res, n, color_counts):
+    to_rem = j if len(cc[i][1]) > len(cc[j][1]) else i
+    to_leave = j if to_rem == i else i
+    cc[to_rem][2] = False
+    for i in cc[to_rem][1]:
+        v[i].cc = to_leave
+        cc[to_leave][1].append(i)
+        if v[i].c in cc[to_leave][0]: 
+            cc[to_leave][0][v[i].c] += 1
+        else:
+            cc[to_leave][0][v[i].c] = 1
+        if cc[to_leave][0][v[i].c] == color_counts[v[i].c] and res[v[i].c] == -1:
+            res[v[i].c] = n
+    cc[to_rem][1] = []
+#            print("saving result for color %s: %s" % (v[i].c, n))
+#            print("res: ", res)
+#    print("colors of merged cc: ", cc[to_leave][0])
+
+            
+n, m, q = (int(x) for x in input().strip().split(' '))
+colors = [int(x) for x in input().strip().split(' ')]
+
+vs=[]
+comps = {}
+for i in range(n):
+    vs.append(Vertex(i, colors[i], i))
+    comps[i] = [{colors[i]: 1}, [i], True] # connected component: (all colors, vertextes)
+
+color_counts = {}
+for c in colors:
+    if c in color_counts:
+        color_counts[c] += 1
+    else:
+        color_counts[c] = 1
+
+res = dict((c, -1) for c in set(colors))
+for i in color_counts:
+    if color_counts[i] == 1:
+        res[i] = 0
+
+for i in range(q):
+    a, b = (int(x) for x in input().strip().split(' '))
+    a -= 1
+    b -= 1
+    # adding edge
+    vs[a].e.append(b)
+    vs[b].e.append(a)
+    # merge components and update answer
+    #bfs(vs, color_counts, res)
+    if vs[a].cc != vs[b].cc:
+ #       print("merging: ", vs[a].cc, vs[b].cc)
+        merge_cc(comps, vs, vs[a].cc, vs[b].cc, res, i+1, color_counts)
+
+#for i in range(len(vs)):
+#     print("cc active: ", i, comps[i][2])
+
+for i in sorted(res.keys()):
+    print(res[i])

@@ -1,0 +1,38 @@
+class Edage:
+    def __init__(self,to,nt,c):self.to,self.nt,self.c = to,nt,c
+S,ns,s,e,n,D,G = [],None, 0,0,0,None,None
+def addEdage(u,v,c,c1):
+    S.append(Edage(v,ns[u],c))
+    ns[u] = len(S) - 1
+    S.append(Edage(u,ns[v],c1))
+    ns[v] = len(S) - 1
+def isap(u,flow):
+    if u == e:return flow
+    rs,i = 0,ns[u]
+    while i!=-1:
+        v,c = S[i].to,S[i].c
+        if D[u] > D[v] and c:
+            f = isap(v,min(flow-rs,c))
+            rs,S[i].c,S[i^1].c = rs+f,S[i].c - f, S[i^1].c + f
+            if rs==flow: return rs
+        i = S[i].nt
+    G[D[u]] -= 1
+    if not G[D[u]]:D[s] = n+2
+    D[u] += 1
+    G[D[u]] += 1
+    return rs
+
+ns,G,D = [-1]*250,[0]*250,[0]*250
+N,T = map(int,input().split(' '))
+C,s,e,n,rs = [int(x) for x in input().split(' ')],N,N+1,N+2,0
+for i in range(len(C)):
+    if C[i] > 1:addEdage(s,i,C[i]-1,0)
+    if C[i] == 0:addEdage(i,e,1,0)
+    else: rs += 1
+for _ in range(T):
+    for x in input().split(' ')[1:]:addEdage(int(x)-1,n,1,0)
+    for x in input().split(' ')[1:]:addEdage(n,int(x)-1,1,0)
+    n += 1
+G[0] = n
+while D[s]<n:rs += isap(s,0x7FFFFFF)
+print(rs)
