@@ -1,0 +1,76 @@
+from collections import Counter
+from math import sqrt
+
+
+def primes(n):
+    x = [True]*((n-1)//2)  # Representing all odd numbers >= 3 and <= n.
+    for i in range(int((sqrt(n)-3)//2)+1):
+        if x[i]:  #  Number represented by i (call it p) is prime
+            # starting with p**2, set all odd multiples of p to false.
+            x[2*i*i+6*i+3::2*i+3] = [False] * int((n-(2*i+3)**2)//(4*i+6)+1)
+    return [2] + [2*i+3 for i,v in enumerate(x) if v]
+
+
+def middle_out(counts):
+    divisor = 10**9 + 7
+    count = [0]*4501
+    for i,n in counts:
+        count[i] = n
+    
+    # Numbers closer to 4096 are added first because they have a smaller 
+    # set of numbers closed under XOR.
+    # Order to include numbers, can be further subdivided and the path
+    # optimized for sparse data sets.
+    path = ((4096, 4351), (4352, 4500), (3584, 4095), (3500, 3583))
+    span = ((256, 0), (512, 0), (512, 4096), (1024, 4096))
+
+    # Array of number of multisets that XOR to j using only the first i numbers.
+    totals = [[0]*8192 for _ in range(2)]  # current and next i values.
+    static, update = 0, 1  # tracks which part of the array is being updated
+    totals[static][0] = 1  # set the xor of the empty multiset to start.
+
+    for i,p in enumerate(path):  # step through path sections 
+        for j,n in enumerate(count[p[0]:p[1]+1]):  # Loop through input numbers
+            if n:  # Find number with at least one in 'user' input.
+                # The numbers of ways to not change the xor (0, 2, 4,...).
+                same = 1 + n//2  
+                # The number of ways to change the xor value (1, 3, 5, ...).
+                change = (n+1)//2  
+                o = span[i][1]  # offset, used when numbers are > AND < 4096.
+                for x in range(span[i][0]):  
+                    """
+                    A = [0, span[i][0]). B = {a XOR j+p[0] for all a in A}. 
+                    Then A Union B (if there is an offset, then union A+offset 
+                    and B+offset as well) is closed under XOR and includes all 
+                    previous inputs.
+                    """
+                    y = x^(j+p[0])  # j+p[0] is just the user input number
+                    totals[update][x] = (totals[static][y]*change + 
+                                         totals[static][x]*same)
+                    totals[update][y] = (totals[static][x]*change + 
+                                         totals[static][y]*same)
+                    if o:
+                        totals[update][x+o] = (totals[static][y+o]*change + 
+                                               totals[static][x+o]*same)
+                        totals[update][y+o] = (totals[static][x+o]*change + 
+                                               totals[static][y+o]*same)
+        
+                # Don't want to % too often, or let the numbers get too big.
+                if totals[update][0] > 100000*divisor:  
+                    for x in range(len(totals[update])):
+                        totals[update][x] %= divisor
+                static, update = update, static
+                
+    p = primes(8191)
+    total = 0
+    for prime in p:
+        total += totals[static][prime]
+
+    return total % divisor
+
+
+q = int(input())
+for _ in range(q):
+    n = int(input())
+    numbers = Counter(int(x) for x in input().split()).items()
+    print(middle_out(numbers))
