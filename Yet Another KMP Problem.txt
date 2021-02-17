@@ -1,0 +1,31 @@
+from string import ascii_lowercase as A
+import sys
+x = list(map(int, input().split()))
+used = [i for i in range(26) if x[i]]
+if len(used) == 0:
+    sys.exit()
+if len(used) == 1:
+    print(A[used[0]] * x[used[0]])
+else:
+    f = min(used, key=lambda a: (x[a], a))
+    used = [a for a in used if a != f]
+    if x[f] == 1:
+        print(A[f] + ''.join(A[c]*x[c] for c in used))
+    elif f > used[0]:
+        x[f] -= 1
+        print(A[f] + ''.join(A[c]*x[c] for c in range(26)))
+    elif 2*(x[f]-2) <= sum(x)-2:
+        res = 2*A[f]
+        b = ''.join(A[c]*x[c] for c in used)
+        x[f] -= 2
+        i = 0
+        while x[f]:
+            res += b[i] + A[f]
+            i += 1
+            x[f] -= 1
+        res += b[i:]
+        print(res)
+    else:
+        x[f] -= 1
+        x[used[0]] -= 1
+        print(A[f] + A[used[0]] + A[f]*x[f] + ''.join(A[c]*x[c] for c in used))

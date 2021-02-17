@@ -1,0 +1,72 @@
+#!/bin/python3
+
+import sys
+
+
+n = int(input().strip())
+NodeDict = {m:[] for m in range(n)}
+for a0 in range(n-1):
+    u,v = input().strip().split(' ')
+    u,v = [int(u)-1,int(v)-1]
+    # your code goes here
+    NodeDict[u].append(v)
+    NodeDict[v].append(u)
+
+    
+M = int(1e9+7)
+ActiveSet = set()
+for key in NodeDict:
+    if len(NodeDict[key]) != 1:
+        ActiveSet.add(key)
+
+NodeDict2 = {m:None for m in ActiveSet}
+TerminalNodes = []
+for key in ActiveSet:
+    NodeDict2[key] = [[],{('r',False):0,('b',False):0,('r',True):0,('b',True):0}]
+    for i1 in NodeDict[key]:
+        if i1 in ActiveSet:
+            NodeDict2[key][0].append(i1)
+        else:
+            NodeDict2[key][1][('r',True)] = 1
+            NodeDict2[key][1][('b',True)] = 1
+    if NodeDict2[key][1][('b',True)] == 0:
+        NodeDict2[key][1][('r',False)] = 1
+        NodeDict2[key][1][('b',False)] = 1
+    if len(NodeDict2[key][0]) == 1:
+        TerminalNodes.append(key)
+
+def MergeNodes(L1,L2,M):
+    Out = {('r',False):0,('b',False):0,('r',True):0,('b',True):0}
+    for key1 in L1:
+        for key2 in L2:
+            if key1[0] == key2[0]:
+                NewKey = (key1[0],True)
+            elif key1[1]:            
+                NewKey = key2
+            else:
+                NewKey = None
+            if NewKey != None:
+                Out[NewKey] += L1[key1]*L2[key2] % M
+    return Out
+        
+
+
+Breakout = False
+while not Breakout:
+    ActiveNode = TerminalNodes.pop()
+    while True:
+        NextNode = NodeDict2[ActiveNode][0][0]
+        NodeDict2[NextNode][0].remove(ActiveNode)
+        NodeDict2[ActiveNode][0].remove(NextNode)
+        assert len(NodeDict2[ActiveNode][0]) == 0
+        
+        NodeDict2[NextNode][1] = MergeNodes(NodeDict2[ActiveNode][1],NodeDict2[NextNode][1],M)
+        NodeDict2[ActiveNode][1] = None
+        if len(NodeDict2[NextNode][0])==1:
+            ActiveNode = NextNode
+        else:
+            if len(NodeDict2[NextNode][0]) == 0:
+                Breakout = True
+            break
+Result = (NodeDict2[NextNode][1][('b', True)] + NodeDict2[NextNode][1][('r', True)]) % M    
+print(Result)
