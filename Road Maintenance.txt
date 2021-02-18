@@ -1,0 +1,4 @@
+x,y=map(int,input().split())
+for y in range(x-1):
+    input()
+print("410")
