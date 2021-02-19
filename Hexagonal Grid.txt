@@ -1,0 +1,43 @@
+def nextIndex(index):
+  return [index[0]+index[1], (index[1]+1)%2]
+def onBoard(index, board):
+  return index[0] < len(board[0])
+for t in range(int(input())):
+  n = int(input())
+  line1 = input()
+  line2 = input()
+  board = [line1,line2]
+  index = [0, 0]
+  sol = "YES"
+  while(index[0]<n):
+    if board[index[1]][index[0]] == "1":
+      index = nextIndex(index)
+      continue
+    index1 = nextIndex(index)
+    if not onBoard(index1, board):
+      #print("line 19 index",index1)
+      sol = "NO"
+      break
+    if board[index1[1]][index1[0]] == "0":
+      #board[index1[1]][index1[0]] = "1"
+      #board[index[1]][index[0]] = "1"
+      index = nextIndex(index1)
+      continue
+    index2 = nextIndex(index1)
+    if not onBoard(index2, board):
+      #print("line 29 index",index2)
+      sol = "NO"
+      break
+    if board[index2[1]][index2[0]] == "0":
+      #board[index2[1]][index2[0]] = "1"
+      #board[index[1]][index[0]] = "1"
+      index = nextIndex(index2)
+      continue
+    sol = "NO"
+    #print("line 37",index, index1, index2)
+    break
+  
+  print(sol)
+        
+    
+    
